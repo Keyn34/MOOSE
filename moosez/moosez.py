@@ -112,6 +112,13 @@ def main():
         help='Path to save the enhance 1.6k ENHANCE dataset'
     )
 
+    parser.add_argument(
+        '-oi', '--organ_indices',
+        action="store_true",
+        default=False,
+        help='Determines the output of the organ indices JSON for each model. '
+    )
+
     # Custom help option
     parser.add_argument(
         "-h", "--help",
@@ -157,6 +164,7 @@ def main():
     model_names = args.model_names
     benchmark = args.benchmark
     moose_instances = args.moose_herd
+    organ_indices = args.organ_indices
 
     output_manager.configure_logging(parent_folder)
     output_manager.log_update('----------------------------------------------------------------------------------------------------')
@@ -254,7 +262,7 @@ def main():
             futures = []
             for i, (subject, accelerator) in enumerate(zip(moose_compliant_subjects, accelerator_assignments)):
                 futures.append(executor.submit(moose_subject, subject, i, num_subjects, model_routine,
-                                               accelerator, None, benchmark))
+                                               accelerator, None, benchmark, organ_indices))
 
             for future in concurrent.futures.as_completed(futures):
                 if benchmark:
@@ -270,7 +278,7 @@ def main():
     else:
         for i, subject in enumerate(moose_compliant_subjects):
             subject_performance = moose_subject(subject, i, num_subjects, model_routine,
-                                                accelerator, output_manager, benchmark)
+                                                accelerator, output_manager, benchmark, organ_indices)
             if benchmark:
                 subject_performance_parameters.append(subject_performance)
 
@@ -387,7 +395,7 @@ def moose(input_data: str | tuple[numpy.ndarray, tuple[float, float, float]] | S
 
 
 def moose_subject(subject: str, subject_index: int, number_of_subjects: int, model_routine: dict, accelerator: str,
-                  output_manager: system.OutputManager | None, benchmark: bool = False):
+                  output_manager: system.OutputManager | None, benchmark: bool = False, organ_indices: bool = False):
     # SETTING UP DIRECTORY STRUCTURE
     subject_name = os.path.basename(subject)
 
@@ -468,6 +476,9 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
             segmentation_image_path = os.path.join(segmentations_dir, f"{model_workflow.target_model.multilabel_prefix}segmentation_{file_name}.nii.gz")
             output_manager.log_update(f'     - Writing segmentation for {model_workflow.target_model}')
             SimpleITK.WriteImage(resampled_segmentation, segmentation_image_path)
+            if organ_indices:
+                output_manager.log_update(f'     - Writing index:region JSON for {model_workflow.target_model}')
+                model_workflow.target_model.write_index_region_json(segmentations_dir)
             output_manager.log_update(f"     - Prediction complete for {model_workflow.target_model} within {round((time.time() - model_time_start)/ 60, 1)} min.")
 
             # ----------------------------------

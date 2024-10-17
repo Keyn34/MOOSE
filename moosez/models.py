@@ -249,6 +249,14 @@ class Model:
         nr_training_data = str(self.dataset.get('numTraining', "Not Available"))
         return nr_training_data
 
+    def write_index_region_json(self, target_directory: str):
+        json_file_path = os.path.join(target_directory, f"{self.model_identifier}.json")
+        json_dict = {
+            self.model_identifier: self.organ_indices
+        }
+        with open(json_file_path, 'w') as json_file:
+            json.dump(json_dict, json_file, indent=4)
+
     def __str__(self):
         return self.model_identifier
 
