@@ -30,6 +30,81 @@ from moosez import models
 from moosez import system
 
 
+def add_model_label_image(base_label_image: SimpleITK.Image, base_label_dictionary: dict,
+                          new_label_image: SimpleITK.Image, new_label_dictionary: dict) -> tuple[SimpleITK.Image, dict]:
+
+    if base_label_image.GetSize() != new_label_image.GetSize():
+        raise ValueError("Input images must have the same size.")
+    if base_label_image.GetSpacing() != new_label_image.GetSpacing():
+        raise ValueError("Input images must have the same spacing.")
+    if base_label_image.GetOrigin() != new_label_image.GetOrigin():
+        raise ValueError("Input images must have the same origin.")
+    if base_label_image.GetDirection() != new_label_image.GetDirection():
+        raise ValueError("Input images must have the same direction.")
+
+    # Get max label intensity from base image to compute shift
+    stats_filter_base = SimpleITK.LabelShapeStatisticsImageFilter()
+    stats_filter_base.Execute(base_label_image)
+    labels_base = list(stats_filter_base.GetLabels())
+    max_label_base = max(labels_base) if labels_base else 0
+    shift_by = max_label_base
+
+    base_label_sizes = {label: stats_filter_base.GetNumberOfPixels(label) for label in labels_base}
+
+    shifted_new_label_image = SimpleITK.ShiftScale(new_label_image, shift=shift_by, scale=1)
+    stats_filter_new = SimpleITK.LabelShapeStatisticsImageFilter()
+    stats_filter_new.Execute(shifted_new_label_image)
+    labels_new_shifted = list(stats_filter_new.GetLabels())
+    new_label_sizes = {label: stats_filter_new.GetNumberOfPixels(label) for label in labels_new_shifted}
+
+    # Combine dictionaries
+    combined_label_dictionary = base_label_dictionary.copy()
+    for intensity, organ in new_label_dictionary.items():
+        combined_label_dictionary[intensity + shift_by] = organ
+
+    base_array = SimpleITK.GetArrayFromImage(base_label_image)
+    new_array = SimpleITK.GetArrayFromImage(shifted_new_label_image)
+
+    combined_array = np.copy(base_array)
+
+    unique_base_labels = np.unique(base_array)
+    unique_new_labels = np.unique(new_array)
+
+    base_label_size_map = np.zeros_like(base_array)
+    for label in unique_base_labels:
+        if label == 0:
+            continue
+        mask = base_array == label
+        base_label_size_map[mask] = base_label_sizes[label]
+
+    new_label_size_map = np.zeros_like(new_array)
+    for label in unique_new_labels:
+        if label == 0:
+            continue
+        mask = new_array == label
+        new_label_size_map[mask] = new_label_sizes[label]
+
+    base_zero = base_array == 0
+    new_zero = new_array == 0
+
+    condition1 = np.logical_and(base_zero, np.logical_not(new_zero))
+    combined_array[condition1] = new_array[condition1]
+
+    overlap = np.logical_and(np.logical_not(base_zero), np.logical_not(new_zero))
+    if np.any(overlap):
+        base_sizes_overlap = base_label_size_map[overlap]
+        new_sizes_overlap = new_label_size_map[overlap]
+
+        overwrite_mask = np.zeros_like(base_array, dtype=bool)
+        overwrite_mask[overlap] = base_sizes_overlap > new_sizes_overlap
+        combined_array[overwrite_mask] = new_array[overwrite_mask]
+
+    combined_label_image = SimpleITK.GetImageFromArray(combined_array)
+    combined_label_image.CopyInformation(base_label_image)
+
+    return combined_label_image, combined_label_dictionary
+
+
 def get_intensity_statistics(image: SimpleITK.Image, mask_image: SimpleITK.Image, model: models.Model, out_csv: str) -> None:
     """
     Get the intensity statistics of a NIFTI image file.
