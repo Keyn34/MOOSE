@@ -8,14 +8,15 @@ import json
 
 
 def create_multi_model_label_segmentation(segmentation_directory: str, model_identifiers: list[str]) -> (SimpleITK.Image, dict):
-    output_manager = system.OutputManager(False, False)
+    output_manager = system.OutputManager(True, False)
     prepared_models = [models.Model(model_identifier, output_manager) for model_identifier in model_identifiers]
 
     base_segmentation_file_path = file_utilities.get_files(segmentation_directory, prepared_models[0].multilabel_prefix, ('.nii', '.nii.gz'))[0]
     combined_segmentation_image = SimpleITK.ReadImage(base_segmentation_file_path)
     combined_segmentation_dict = prepared_models[0].organ_indices
+    output_manager.console_update(f"Starting with {prepared_models[0]} as base.")
     for prepared_model in prepared_models[1:]:
-        output_manager.console_update(f"Combining with {prepared_model}")
+        output_manager.console_update(f"  - combining with {prepared_model}")
         new_segmentation_file_path = file_utilities.get_files(segmentation_directory, prepared_model.multilabel_prefix, ('.nii', '.nii.gz'))[0]
         new_segmentation_image = SimpleITK.ReadImage(new_segmentation_file_path)
         combined_segmentation_image, combined_segmentation_dict = image_processing.add_model_label_image(combined_segmentation_image, combined_segmentation_dict, new_segmentation_image, prepared_model.organ_indices)
