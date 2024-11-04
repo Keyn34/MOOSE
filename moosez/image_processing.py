@@ -42,7 +42,6 @@ def add_model_label_image(base_label_image: SimpleITK.Image, base_label_dictiona
     if base_label_image.GetDirection() != new_label_image.GetDirection():
         raise ValueError("Input images must have the same direction.")
 
-    # Get max label intensity from base image to compute shift
     stats_filter_base = SimpleITK.LabelShapeStatisticsImageFilter()
     stats_filter_base.Execute(base_label_image)
     labels_base = list(stats_filter_base.GetLabels())
@@ -51,13 +50,15 @@ def add_model_label_image(base_label_image: SimpleITK.Image, base_label_dictiona
 
     base_label_sizes = {label: stats_filter_base.GetNumberOfPixels(label) for label in labels_base}
 
-    shifted_new_label_image = SimpleITK.ShiftScale(new_label_image, shift=shift_by, scale=1)
+    new_label_foreground_mask = new_label_image > 0
+    shifted_new_label_image = new_label_image + shift_by
+    shifted_new_label_image = shifted_new_label_image * new_label_foreground_mask
+
     stats_filter_new = SimpleITK.LabelShapeStatisticsImageFilter()
     stats_filter_new.Execute(shifted_new_label_image)
     labels_new_shifted = list(stats_filter_new.GetLabels())
     new_label_sizes = {label: stats_filter_new.GetNumberOfPixels(label) for label in labels_new_shifted}
 
-    # Combine dictionaries
     combined_label_dictionary = base_label_dictionary.copy()
     for intensity, organ in new_label_dictionary.items():
         combined_label_dictionary[intensity + shift_by] = organ
