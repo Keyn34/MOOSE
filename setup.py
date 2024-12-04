@@ -47,7 +47,6 @@ setup(
         'rich',
         'pandas',
         'dicom2nifti~=2.4.8',
-        'emoji',
         'matplotlib',
         'psutil',
         'nibabel'

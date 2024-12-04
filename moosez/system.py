@@ -4,7 +4,6 @@ import logging
 import torch
 import os
 import sys
-import emoji
 import pyfiglet
 from halo import Halo
 from datetime import datetime
@@ -161,7 +160,7 @@ class OutputManager:
 
         :return: None
         """
-        self.console_update(f'{ANSI_VIOLET} {emoji.emojize(":desktop_computer:")}  AUTHORS:{ANSI_RESET}')
+        self.console_update(f'{ANSI_VIOLET} AUTHORS:{ANSI_RESET}')
         self.console_update(" ")
         self.console_update(" The Three Moose-keteers 🤺: Lalith Kumar Shiyam Sundar | Sebastian Gutschmayer | Manuel Pires")
         self.console_update(" ")
@@ -174,7 +173,7 @@ class OutputManager:
 
         :return: None
         """
-        self.console_update(f'{ANSI_VIOLET} {emoji.emojize(":scroll:")} CITATION:{ANSI_RESET}')
+        self.console_update(f'{ANSI_VIOLET} CITATION:{ANSI_RESET}')
         self.console_update(" ")
         self.console_update(" Fully Automated, Semantic Segmentation of Whole-Body [18F]-FDG PET/CT Images Based on Data-Centric Artificial Intelligence")
         self.console_update(" 10.2967/jnumed.122.264063")

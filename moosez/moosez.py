@@ -25,7 +25,6 @@ import argparse
 import time
 import SimpleITK
 import colorama
-import emoji
 import numpy
 import pandas as pd
 import multiprocessing as mp
@@ -145,7 +144,7 @@ def main():
 
     if args.download_training_data:
         output_manager.console_update(f'')
-        output_manager.console_update(f'{constants.ANSI_VIOLET} {emoji.emojize(":globe_with_meridians:")} ENHANCE 1.6k DATA DOWNLOAD:{constants.ANSI_RESET}')
+        output_manager.console_update(f'{constants.ANSI_VIOLET} ENHANCE 1.6k DATA DOWNLOAD:{constants.ANSI_RESET}')
         output_manager.console_update(f'')
         download.download_enhance_data(args.download_directory, output_manager)
         return
@@ -169,7 +168,7 @@ def main():
     # ----------------------------------
 
     output_manager.console_update(f'')
-    output_manager.console_update(f'{constants.ANSI_VIOLET} {emoji.emojize(":globe_with_meridians:")} MODEL DOWNLOAD:{constants.ANSI_RESET}')
+    output_manager.console_update(f'{constants.ANSI_VIOLET} MODEL DOWNLOAD:{constants.ANSI_RESET}')
     output_manager.console_update(f'')
     model_path = system.MODELS_DIRECTORY_PATH
     file_utilities.create_directory(model_path)
@@ -183,7 +182,7 @@ def main():
     output_manager.log_update(f'- Main directory: {parent_folder}')
     output_manager.log_update(f' ')
     output_manager.console_update(f' ')
-    output_manager.console_update(f'{constants.ANSI_VIOLET} {emoji.emojize(":memo:")} NOTE:{constants.ANSI_RESET}')
+    output_manager.console_update(f'{constants.ANSI_VIOLET} NOTE:{constants.ANSI_RESET}')
     output_manager.console_update(f' ')
 
     custom_trainer_status = add_custom_trainers_to_local_nnunetv2()
@@ -198,7 +197,7 @@ def main():
     # ----------------------------------
 
     output_manager.console_update(f'')
-    output_manager.console_update(f'{constants.ANSI_VIOLET} {emoji.emojize(":magnifying_glass_tilted_left:")} STANDARDIZING INPUT DATA TO NIFTI:{constants.ANSI_RESET}')
+    output_manager.console_update(f'{constants.ANSI_VIOLET} STANDARDIZING INPUT DATA TO NIFTI:{constants.ANSI_RESET}')
     output_manager.console_update(f'')
     output_manager.log_update(f' ')
     output_manager.log_update(f' STANDARDIZING INPUT DATA TO NIFTI:')
@@ -217,7 +216,7 @@ def main():
     num_subjects = len(moose_compliant_subjects)
 
     if num_subjects < 1:
-        output_manager.console_update(f'{constants.ANSI_RED} {emoji.emojize(":cross_mark:")} No moose compliant subject found to continue!{constants.ANSI_RESET} {emoji.emojize(":light_bulb:")} See: https://github.com/ENHANCE-PET/MOOSE#directory-structure-and-naming-conventions-for-moose-%EF%B8%8F')
+        output_manager.console_update(f'{constants.ANSI_RED} No moose compliant subject found to continue!{constants.ANSI_RESET} See: https://github.com/ENHANCE-PET/MOOSE#directory-structure-and-naming-conventions-for-moose-%EF%B8%8F')
         return
 
     # -------------------------------------------------
@@ -225,7 +224,7 @@ def main():
     # -------------------------------------------------
 
     output_manager.console_update(f'')
-    output_manager.console_update(f'{constants.ANSI_VIOLET} {emoji.emojize(":crystal_ball:")} PREDICT:{constants.ANSI_RESET}')
+    output_manager.console_update(f'{constants.ANSI_VIOLET} PREDICT:{constants.ANSI_RESET}')
     output_manager.console_update(f'')
     output_manager.log_update(' ')
     output_manager.log_update(' PERFORMING PREDICTION:')
