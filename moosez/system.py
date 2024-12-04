@@ -162,7 +162,7 @@ class OutputManager:
         """
         self.console_update(f'{ANSI_VIOLET} AUTHORS:{ANSI_RESET}')
         self.console_update(" ")
-        self.console_update(" The Three Moose-keteers 🤺: Lalith Kumar Shiyam Sundar | Sebastian Gutschmayer | Manuel Pires")
+        self.console_update(" The Three Moose-keteers: Lalith Kumar Shiyam Sundar | Sebastian Gutschmayer | Manuel Pires")
         self.console_update(" ")
 
     def display_doi(self):
