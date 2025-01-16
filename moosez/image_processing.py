@@ -181,8 +181,8 @@ def largest_connected_component(segmentation_array, intensities):
 class ImageChunker:
     @staticmethod
     def __compute_interior_indices(axis_length: int, number_of_chunks: int) -> Tuple[List[int], List[int]]:
-        start = [int(round(k * axis_length / number_of_chunks)) for k in range(number_of_chunks)]
-        end = [int(round((k + 1) * axis_length / number_of_chunks)) for k in range(number_of_chunks)]
+        start = [int(round(chunk_index * axis_length / number_of_chunks)) for chunk_index in range(number_of_chunks)]
+        end = [int(round((chunk_index + 1) * axis_length / number_of_chunks)) for chunk_index in range(number_of_chunks)]
         return start, end
 
     @staticmethod
@@ -213,22 +213,20 @@ class ImageChunker:
 
                 start = max(0, start_index[chunk_index] - overlap if chunk_index > 0 else start_index[chunk_index])
                 end = min(axis_length, end_index[chunk_index] + overlap if chunk_index < number_of_chunks - 1 else end_index[chunk_index])
+                chunk_slice.append(slice(start, end))
 
                 start_in_chunk = start_index[chunk_index] - start
                 end_in_chunk = start_in_chunk + (end_index[chunk_index] - start_index[chunk_index])
+                interior_slice.append(slice(start_in_chunk, end_in_chunk))
 
                 start_in_full = start_index[chunk_index]
                 end_in_full = end_index[chunk_index]
-
-                chunk_slice.append(slice(start, end))
-                interior_slice.append(slice(start_in_chunk, end_in_chunk))
                 dest_slice.append(slice(start_in_full, end_in_full))
 
-            chunk_info.append({
-                'chunk_slice': tuple(chunk_slice),
-                'interior_slice': tuple(interior_slice),
-                'dest_slice': tuple(dest_slice)
-            })
+            chunk_info.append({'chunk_slice': tuple(chunk_slice),
+                               'interior_slice': tuple(interior_slice),
+                               'dest_slice': tuple(dest_slice)
+                               })
 
         return chunk_info
 
@@ -240,10 +238,9 @@ class ImageChunker:
 
         for info in chunk_info:
             image_chunk = image_array[info['chunk_slice']]
-            positions.append({
-                'interior_slice': info['interior_slice'],
-                'dest_slice': info['dest_slice']
-            })
+            positions.append({'interior_slice': info['interior_slice'],
+                              'dest_slice': info['dest_slice']
+                              })
             image_chunks.append(image_chunk)
 
         return image_chunks, positions
@@ -335,34 +332,6 @@ class ImageResampler:
         resampled_array = SimpleITK.GetArrayFromImage(resampled_sitk_image)
         return resampled_array
 
-    @staticmethod
-    def resample_image_SimpleITK_DASK(sitk_image: SimpleITK.Image, interpolation: str,
-                                      output_spacing: Tuple[float, float, float] = (1.5, 1.5, 1.5),
-                                      output_size: Union[Tuple, None] = None) -> SimpleITK.Image:
-        """
-        Resamples a sitk_image using Dask and SimpleITK.
-
-        :param sitk_image: The SimpleITK image to be resampled.
-        :type sitk_image: sitk.Image
-        :param interpolation: nearest|linear|bspline.
-        :type interpolation: str
-        :param output_spacing: The desired output spacing of the resampled sitk_image.
-        :type output_spacing: tuple
-        :param output_size: The new size to use.
-        :type output_size: tuple
-        :return: The resampled sitk_image as SimpleITK.Image.
-        :rtype: sitk.Image
-        :raises ValueError: If the interpolation method is not supported.
-        """
-
-        resample_result = ImageResampler.resample_image_SimpleITK_DASK_array(sitk_image, interpolation, output_spacing, output_size)
-
-        resampled_image = SimpleITK.GetImageFromArray(resample_result)
-        resampled_image.SetSpacing(output_spacing)
-        resampled_image.SetOrigin(sitk_image.GetOrigin())
-        resampled_image.SetDirection(sitk_image.GetDirection())
-
-        return resampled_image
 
     @staticmethod
     def reslice_identity(reference_image: SimpleITK.Image, moving_image: SimpleITK.Image,

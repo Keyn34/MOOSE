@@ -335,6 +335,8 @@ def moose(input_data: Union[str, Tuple[numpy.ndarray, Tuple[float, float, float]
     if isinstance(input_data, str):
         image = SimpleITK.ReadImage(input_data)
         file_name = file_utilities.get_nifti_file_stem(input_data)
+        if output_dir is None:
+            output_dir = os.path.dirname(input_data)
     elif isinstance(input_data, SimpleITK.Image):
         image = input_data
         file_name = 'image_from_simpleitk'
@@ -387,12 +389,13 @@ def moose(input_data: Union[str, Tuple[numpy.ndarray, Tuple[float, float, float]
             segmentation.SetDirection(image.GetDirection())
             resampled_segmentation = image_processing.ImageResampler.resample_segmentation(image, segmentation)
 
+            if output_dir is not None:
+                file_path = os.path.join(output_dir, f"{model_workflow.target_model.multilabel_prefix}segmentation_{file_name}.nii.gz")
+                SimpleITK.WriteImage(resampled_segmentation, file_path)
+
             image_output = None
             if isinstance(input_data, str):  # Return file path if input was a file path
-                if output_dir is None:
-                    output_dir = os.path.dirname(input_data)
-                image_output = os.path.join(output_dir, f"{model_workflow.target_model.multilabel_prefix}segmentation_{file_name}.nii.gz")
-                SimpleITK.WriteImage(resampled_segmentation, image_output)
+                image_output = file_path
             elif isinstance(input_data, SimpleITK.Image):  # Return SimpleITK.Image if input was SimpleITK.Image
                 image_output = resampled_segmentation
             elif isinstance(input_data, tuple):  # Return numpy array if input was numpy array
@@ -486,30 +489,25 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
             segmentation_image_path = os.path.join(segmentations_dir, f"{model_workflow.target_model.multilabel_prefix}segmentation_{file_name}.nii.gz")
             output_manager.log_update(f'     - Writing segmentation for {model_workflow.target_model}')
             SimpleITK.WriteImage(resampled_segmentation, segmentation_image_path)
+            output_manager.log_update(f'     - Writing organ indices for {model_workflow.target_model}')
+            model_workflow.target_model.organ_indices_to_json(segmentations_dir)
             output_manager.log_update(f"     - Prediction complete for {model_workflow.target_model} within {round((time.time() - model_time_start)/ 60, 1)} min.")
 
             # -----------------------------------------------
             # EXTRACT VOLUME STATISTICS AND HOUNSFIELD UNITS
             # -----------------------------------------------
-            output_manager.spinner_update(
-                f'[{subject_index + 1}/{number_of_subjects}] Extracting CT volume statistics for {subject_name} ({model_workflow.target_model})...')
+            output_manager.spinner_update(f'[{subject_index + 1}/{number_of_subjects}] Extracting CT volume statistics for {subject_name} ({model_workflow.target_model})...')
             output_manager.log_update(f'     - Extracting volume statistics for {model_workflow.target_model}')
-            out_vol_stats_csv = os.path.join(stats_dir,
-                                             model_workflow.target_model.multilabel_prefix + subject_name + '_ct_volume.csv')
-            image_processing.get_shape_statistics(resampled_segmentation, model_workflow.target_model,
-                                                  out_vol_stats_csv)
-            output_manager.spinner_update(
-                f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] CT volume extracted for {subject_name}! {constants.ANSI_RESET}')
+            out_vol_stats_csv = os.path.join(stats_dir, model_workflow.target_model.multilabel_prefix + subject_name + '_ct_volume.csv')
+            image_processing.get_shape_statistics(resampled_segmentation, model_workflow.target_model, out_vol_stats_csv)
+            output_manager.spinner_update(f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] CT volume extracted for {subject_name}! {constants.ANSI_RESET}')
             time.sleep(1)
-            output_manager.spinner_update(
-            f'[{subject_index + 1}/{number_of_subjects}] Extracting CT hounsfield statistics for {subject_name} ({model_workflow.target_model})...')
+
+            output_manager.spinner_update(f'[{subject_index + 1}/{number_of_subjects}] Extracting CT hounsfield statistics for {subject_name} ({model_workflow.target_model})...')
             output_manager.log_update(f'     - Extracting hounsfield statistics for {model_workflow.target_model}')
-            out_hu_stats_csv = os.path.join(stats_dir,
-                                        model_workflow.target_model.multilabel_prefix + subject_name + '_ct_hu_values.csv')
-            image_processing.get_intensity_statistics(image, resampled_segmentation, model_workflow.target_model,
-                                                  out_hu_stats_csv)
-            output_manager.spinner_update(
-            f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] CT hounsfield statistics extracted for {subject_name}! {constants.ANSI_RESET}')
+            out_hu_stats_csv = os.path.join(stats_dir, model_workflow.target_model.multilabel_prefix + subject_name + '_ct_hu_values.csv')
+            image_processing.get_intensity_statistics(image, resampled_segmentation, model_workflow.target_model, out_hu_stats_csv)
+            output_manager.spinner_update(f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] CT hounsfield statistics extracted for {subject_name}! {constants.ANSI_RESET}')
             time.sleep(1)
 
             # ----------------------------------

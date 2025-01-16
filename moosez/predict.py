@@ -24,6 +24,7 @@ from typing import Tuple, List, Dict, Iterator
 from moosez import models
 from moosez import image_processing
 from moosez import system
+from moosez import constants
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
@@ -46,7 +47,7 @@ def initialize_predictor(model: models.Model, accelerator: str) -> nnUNetPredict
 
 @dask.delayed
 def process_case(preprocessor, chunk: np.ndarray, chunk_properties: Dict, predictor: nnUNetPredictor, location: Tuple) -> Dict:
-    data, seg = preprocessor.run_case_npy(chunk,
+    data, _ = preprocessor.run_case_npy(chunk,
                                           None,
                                           chunk_properties,
                                           predictor.plans_manager,
@@ -54,16 +55,15 @@ def process_case(preprocessor, chunk: np.ndarray, chunk_properties: Dict, predic
                                           predictor.dataset_json)
 
     data_tensor = torch.from_numpy(data).contiguous()
-    if predictor.device == "cuda":
+    if predictor.device.type == "cuda":
         data_tensor = data_tensor.pin_memory()
 
     return {'data': data_tensor, 'data_properties': chunk_properties, 'ofile': None, 'location': location}
 
 
 def preprocessing_iterator_from_array(image_array: np.ndarray, image_properties: Dict, predictor: nnUNetPredictor, output_manager: system.OutputManager) -> Tuple[Iterator, List[Dict]]:
-    overlap_per_dimension = (0, 20, 20, 20)
     splits = image_processing.ImageChunker.determine_splits(image_array)
-    chunks, locations = image_processing.ImageChunker.array_to_chunks(image_array, splits, overlap_per_dimension)
+    chunks, locations = image_processing.ImageChunker.array_to_chunks(image_array, splits, constants.OVERLAP_PER_AXIS)
 
     if len(chunks) == 1:
         output_manager.log_update(f"     - Image below chunking threshold. Single chunk of size: {'x'.join(map(str, chunks[0].shape))}")
@@ -88,9 +88,7 @@ def predict_from_array_by_iterator(image_array: np.ndarray, model: models.Model,
 
     with output_manager.manage_nnUNet_output():
         predictor = initialize_predictor(model, accelerator)
-        image_properties = {
-            'spacing': model.voxel_spacing
-        }
+        image_properties = {'spacing': model.voxel_spacing}
 
         iterator, chunk_locations = preprocessing_iterator_from_array(image_array, image_properties, predictor, output_manager)
         segmentations = predictor.predict_from_data_iterator(iterator)

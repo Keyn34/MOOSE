@@ -78,7 +78,12 @@ MODEL_METADATA = {
     "clin_pt_fdg_brain_v1": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_fdg_pt_brain_v1_17112023.zip",
         KEY_FOLDER_NAME: "Dataset100_Brain_v1",
-        KEY_LIMIT_FOV: None
+        KEY_LIMIT_FOV: {
+            "model_to_crop_from": "clin_ct_fast_organs",
+            "inference_fov_intensities": [4, 4],
+            "label_intensity_to_crop_from": 4,
+            "largest_component_only": True
+        }
     },
     "clin_ct_ALPACA": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_ALPACA.zip",
@@ -93,11 +98,6 @@ MODEL_METADATA = {
     "clin_ct_fast_organs": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_organs_6_02092024.zip",
         KEY_FOLDER_NAME: "Dataset145_Fast_organs",
-        KEY_LIMIT_FOV: None
-    },
-    "clin_pt_fdg_tumor": {
-        KEY_URL: None,
-        KEY_FOLDER_NAME: None,
         KEY_LIMIT_FOV: None
     },
     "clin_ct_body_composition": {
@@ -210,11 +210,6 @@ class Model:
         return dataset, plans
 
     def __download(self, output_manager: system.OutputManager):
-        """
-        Download and extract the model if it does not exist locally
-        or if the existing folder has a different URL recorded.
-        """
-
         # If folder already exists, check if we should remove it
         if os.path.exists(self.directory):
             # Attempt to load the previously saved URL from version file
@@ -231,19 +226,12 @@ class Model:
 
             # If the existing folder's URL doesn't match the new URL, remove folder
             if old_url != self.url:
-                output_manager.console_update(
-                    f" Model version mismatch detected for '{self.model_identifier}'. Removing outdated model and downloading the latest model..."
-
-                )
+                output_manager.console_update(f" Model version mismatch detected for '{self.model_identifier}'. Removing outdated model and downloading the latest model...")
                 shutil.rmtree(self.directory, ignore_errors=True)
             else:
                 # If the URL matches, we skip re-downloading
-                output_manager.log_update(
-                    f"    - A local instance of {self.model_identifier} has been detected."
-                )
-                output_manager.console_update(
-                    f"{ANSI_GREEN} A local instance of {self.model_identifier} has been detected. {ANSI_RESET}"
-                )
+                output_manager.log_update(f"    - A local instance of {self.model_identifier} has been detected.")
+                output_manager.console_update(f"{ANSI_GREEN} A local instance of {self.model_identifier} has been detected. {ANSI_RESET}")
                 return
 
         # If folder doesn't exist or has been removed, proceed to download
@@ -274,9 +262,7 @@ class Model:
                         f.write(chunk)
                         progress.update(task, advance=chunk_size)
 
-        output_manager.log_update(
-            f"    - {self.model_identifier} ({self.folder_name}) downloaded."
-        )
+        output_manager.log_update(f"    - {self.model_identifier} ({self.folder_name}) downloaded.")
 
         # Extract
         progress = output_manager.create_file_progress_bar()
@@ -298,14 +284,16 @@ class Model:
             json.dump({"url": self.url}, vf)
 
         output_manager.log_update(f"    - {self.model_identifier} - setup complete.")
-        output_manager.console_update(
-            f"{ANSI_GREEN} {self.model_identifier} - setup complete. {ANSI_RESET}"
-        )
-
+        output_manager.console_update(f"{ANSI_GREEN} {self.model_identifier} - setup complete. {ANSI_RESET}")
 
     def __get_organ_indices(self) -> Dict[int, str]:
         labels = self.dataset.get('labels', {})
         return {int(value): key for key, value in labels.items() if value != "0"}
+
+    def organ_indices_to_json(self, directory_path: str):
+        file_path = os.path.join(directory_path, f"{self.multilabel_prefix}organ_indices.json")
+        with open(file_path, "w") as organ_indices_json_file:
+            json.dump({"organ_indices": self.__get_organ_indices()}, organ_indices_json_file, indent=4)
 
     def __get_number_training_data(self) -> str:
         nr_training_data = str(self.dataset.get('numTraining', "Not Available"))
