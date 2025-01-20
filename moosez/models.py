@@ -150,7 +150,8 @@ class Model:
         self.trainer, self.planner, self.resolution_configuration = self.__get_model_configuration()
 
         self.dataset, self.plans = self.__get_model_data()
-        self.voxel_spacing = tuple(self.plans.get('configurations').get(self.resolution_configuration).get('spacing', DEFAULT_SPACING))
+        self.voxel_spacing_numpy = tuple(self.plans.get('configurations').get(self.resolution_configuration).get('spacing', DEFAULT_SPACING))
+        self.voxel_spacing_SimpleITK = tuple(reversed(self.voxel_spacing_numpy))
         self.imaging_type, self.modality, self.region = self.__get_model_identifier_segments()
         self.multilabel_prefix = f"{self.imaging_type}_{self.modality}_{self.region}_"
 
@@ -313,7 +314,7 @@ class Model:
             f" Trainer: {self.trainer}",
             f" Planner: {self.planner}",
             f" Resolution Configuration: {self.resolution_configuration}",
-            f" Voxel Spacing: {self.voxel_spacing}",
+            f" Voxel Spacing: {self.voxel_spacing_SimpleITK} (SimpleITK) | {self.voxel_spacing_numpy} (numpy)",
             f" Imaging Type: {self.imaging_type}",
             f" Modality: {self.modality}",
             f" Region: {self.region}",
@@ -355,7 +356,7 @@ class ModelWorkflow:
         self.workflow: List[Model] = []
         self.__construct_workflow(model_identifier, output_manager)
         if self.workflow:
-            self.initial_desired_spacing = self.workflow[0].voxel_spacing
+            self.initial_desired_spacing = self.workflow[0].voxel_spacing_SimpleITK
             self.target_model = self.workflow[-1]
 
     def __construct_workflow(self, model_identifier: str, output_manager: system.OutputManager):
@@ -377,7 +378,7 @@ class ModelWorkflow:
         return " -> ".join([model.model_identifier for model in self.workflow])
 
 
-def construct_model_routine(model_identifiers: Union[str, List[str]], output_manager: system.OutputManager) -> Dict[tuple, List[ModelWorkflow]]:
+def construct_model_routine(model_identifiers: Union[str, List[str]], output_manager: system.OutputManager) -> Dict[Tuple[float, float, float], List[ModelWorkflow]]:
     if isinstance(model_identifiers, str):
         model_identifiers = [model_identifiers]
 

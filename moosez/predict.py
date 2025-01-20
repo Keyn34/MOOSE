@@ -88,7 +88,7 @@ def predict_from_array_by_iterator(image_array: np.ndarray, model: models.Model,
 
     with output_manager.manage_nnUNet_output():
         predictor = initialize_predictor(model, accelerator)
-        image_properties = {'spacing': model.voxel_spacing}
+        image_properties = {'spacing': model.voxel_spacing_numpy}
 
         iterator, chunk_locations = preprocessing_iterator_from_array(image_array, image_properties, predictor, output_manager)
         segmentations = predictor.predict_from_data_iterator(iterator)
@@ -123,11 +123,11 @@ def cropped_fov_prediction_pipeline(image, segmentation_array, workflow: models.
     # Convert the segmentation array to SimpleITK image and set properties
     to_crop_segmentation = SimpleITK.GetImageFromArray(segmentation_array)
     to_crop_segmentation.SetOrigin(image.GetOrigin())
-    to_crop_segmentation.SetSpacing(model_to_crop_from.voxel_spacing)
+    to_crop_segmentation.SetSpacing(model_to_crop_from.voxel_spacing_SimpleITK)
     to_crop_segmentation.SetDirection(image.GetDirection())
 
     # Resample the image using the desired spacing
-    desired_spacing = target_model.voxel_spacing
+    desired_spacing = target_model.voxel_spacing_SimpleITK
     to_crop_image_array = image_processing.ImageResampler.resample_image_SimpleITK_DASK_array(image, 'bspline', desired_spacing)
     to_crop_image = SimpleITK.GetImageFromArray(to_crop_image_array)
     to_crop_image.SetOrigin(image.GetOrigin())
