@@ -212,17 +212,5 @@ def check_device(output_manager: OutputManager = OutputManager(False, False)) ->
         return "cpu", None
 
 
-def get_virtual_env_root() -> str:
-    """
-    Returns the root directory of the virtual environment.
-
-    :return: The root directory of the virtual environment.
-    :rtype: str
-    """
-    python_exe = sys.executable
-    virtual_env_root = os.path.dirname(os.path.dirname(python_exe))
-    return virtual_env_root
-
-
-ENVIRONMENT_ROOT_PATH: str = get_virtual_env_root()
-MODELS_DIRECTORY_PATH: str = os.path.join(ENVIRONMENT_ROOT_PATH, 'models', 'nnunet_trained_models')
+MOOSE_ROOT_PATH: str = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIRECTORY_PATH: str = os.path.join(MOOSE_ROOT_PATH, 'models', 'nnunet_trained_models')
