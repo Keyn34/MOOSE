@@ -186,8 +186,8 @@ def main():
     output_manager.console_update(f'{constants.ANSI_VIOLET} {emoji.emojize(":memo:")} NOTE:{constants.ANSI_RESET}')
     output_manager.console_update(f' ')
 
-    custom_trainer_status = add_custom_trainers_to_local_nnunetv2()
     modalities = input_validation.determine_model_expectations(model_routine, output_manager)
+    custom_trainer_status = add_custom_trainers_to_local_nnunetv2()
     output_manager.log_update(f'- Custom trainer: {custom_trainer_status}')
     accelerator, device_count = system.check_device(output_manager)
     if moose_instances is not None:
@@ -355,6 +355,8 @@ def moose(input_data: Union[str, Tuple[numpy.ndarray, Tuple[float, float, float]
 
     # Output manager and model routine setup
     output_manager = system.OutputManager(False, False)
+
+    add_custom_trainers_to_local_nnunetv2()
     model_path = system.MODELS_DIRECTORY_PATH
     file_utilities.create_directory(model_path)
     model_routine = models.construct_model_routine(model_names, output_manager)
