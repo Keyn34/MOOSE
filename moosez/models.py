@@ -188,10 +188,11 @@ class Model:
         segments = self.model_identifier.split('_')
 
         imaging_type = segments[0]
-        modality = segments[1].upper()
         if segments[1] == 'pt':
+            modality = f'{segments[1]}_{segments[2]}'.upper()
             region = '_'.join(segments[3:])
         else:
+            modality = segments[1].upper()
             region = '_'.join(segments[2:])
 
         return imaging_type, modality, region
@@ -364,16 +365,6 @@ class ModelWorkflow:
             self.__construct_workflow(model.limit_fov["model_to_crop_from"], output_manager)
         self.workflow.append(model)
 
-    def determine_image_sequence(self, CT_image, PT_image) -> List:
-        image_sequence = []
-        for model in self.workflow:
-            if model.modality == 'CT':
-                image_sequence.append(CT_image)
-            elif model.modality == 'PT':
-                image_sequence.append(PT_image)
-        return image_sequence
-
-
     def __len__(self) -> len:
         return len(self.workflow)
 
@@ -387,15 +378,19 @@ class ModelWorkflow:
         return " -> ".join([model.model_identifier for model in self.workflow])
 
 
-def construct_workflow_routine(model_identifiers: Union[str, List[str]], output_manager: system.OutputManager) -> List[ModelWorkflow]:
+def construct_model_routine(model_identifiers: Union[str, List[str]], output_manager: system.OutputManager) -> Dict[Tuple[float, float, float], List[ModelWorkflow]]:
     if isinstance(model_identifiers, str):
         model_identifiers = [model_identifiers]
 
-    model_workflows = []
+    model_routine: Dict = {}
     output_manager.log_update(' SETTING UP MODEL WORKFLOWS:')
     for model_identifier in model_identifiers:
         output_manager.log_update(' - Model name: ' + model_identifier)
         model_workflow = ModelWorkflow(model_identifier, output_manager)
-        model_workflows.append(model_workflow)
 
-    return model_workflows
+        if model_workflow.initial_desired_spacing in model_routine:
+            model_routine[model_workflow.initial_desired_spacing].append(model_workflow)
+        else:
+            model_routine[model_workflow.initial_desired_spacing] = [model_workflow]
+
+    return model_routine

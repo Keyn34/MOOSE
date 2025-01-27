@@ -26,9 +26,6 @@ import scipy.ndimage as ndimage
 import nibabel
 import os
 from typing import Union, Tuple, List, Dict
-
-from openpyxl.styles.builtins import output
-
 from moosez.constants import CHUNK_THRESHOLD_RESAMPLING, CHUNK_THRESHOLD_INFERRING
 from moosez import models
 from moosez import system
@@ -369,12 +366,6 @@ class ImageResampler:
         return result.compute()
 
     @staticmethod
-    def image_geometries_identical(reference_image: SimpleITK.Image, image: SimpleITK.Image) -> bool:
-        reference_geometry = (reference_image.GetSize(), reference_image.GetSpacing(), reference_image.GetOrigin(), reference_image.GetDirection())
-        image_geometry = (image.GetSize(), image.GetSpacing(), image.GetOrigin(), image.GetDirection())
-        return reference_geometry == image_geometry
-
-    @staticmethod
     def reslice_identity(reference_image: SimpleITK.Image, moving_image: SimpleITK.Image,
                          output_image_path: Union[str, None] = None, is_label_image: bool = False) -> SimpleITK.Image:
         """
@@ -391,26 +382,18 @@ class ImageResampler:
         :return: The resliced image as SimpleITK.Image.
         :rtype: SimpleITK.Image
         """
-
-        if ImageResampler.image_geometries_identical(reference_image, moving_image):
-            return moving_image
-
         resampler = SimpleITK.ResampleImageFilter()
         resampler.SetReferenceImage(reference_image)
 
         if is_label_image:
             resampler.SetInterpolator(SimpleITK.sitkNearestNeighbor)
-            output_pixel_type = SimpleITK.sitkInt32
         else:
             resampler.SetInterpolator(SimpleITK.sitkLinear)
-            output_pixel_type = moving_image.GetPixelID()
 
         resampled_image = resampler.Execute(moving_image)
-        resampled_image = SimpleITK.Cast(resampled_image, output_pixel_type)
-
+        resampled_image = SimpleITK.Cast(resampled_image, SimpleITK.sitkInt32)
         if output_image_path is not None:
             SimpleITK.WriteImage(resampled_image, output_image_path)
-
         return resampled_image
 
     @staticmethod
@@ -421,17 +404,6 @@ class ImageResampler:
                                                   segmentation_image.GetPixelIDValue())
         return resampled_sitk_image
 
-def preprocess_image_sequence(image_sequence: List[SimpleITK.Image]) -> List[SimpleITK.Image]:
-    reference_image = image_sequence[-1]
-    if len(image_sequence) == 1:
-        return image_sequence
-
-    for image_id in range(len(image_sequence) - 1):
-        current_image = image_sequence[image_id]
-        resliced_image = ImageResampler.reslice_identity(reference_image, current_image)
-        image_sequence[image_id] = resliced_image
-
-    return image_sequence
 
 def determine_orientation_code(image: nibabel.Nifti1Image) -> Tuple[Union[Tuple, List], str]:
     affine = image.affine
