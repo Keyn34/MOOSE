@@ -20,6 +20,7 @@ import dask
 import torch
 import numpy as np
 import SimpleITK
+import time
 from typing import Tuple, List, Dict, Iterator
 from moosez import models
 from moosez import image_processing
@@ -118,6 +119,7 @@ def cropped_fov_prediction_pipeline(image, segmentation_array, workflow: models.
     # Get the second model from the routine
     model_to_crop_from = workflow[0]
     target_model = workflow[1]
+    output_manager.log_update(f'   - Model {target_model.model_identifier}')
     target_model_fov_information = target_model.limit_fov
 
     # Convert the segmentation array to SimpleITK image and set properties
@@ -128,7 +130,9 @@ def cropped_fov_prediction_pipeline(image, segmentation_array, workflow: models.
 
     # Resample the image using the desired spacing
     desired_spacing = target_model.voxel_spacing_SimpleITK
+    resampling_time_start = time.time()
     to_crop_image_array = image_processing.ImageResampler.resample_image_SimpleITK_DASK_array(image, 'bspline', desired_spacing)
+    output_manager.log_update(f'     - Resampling image for next model at {"x".join(map(str, desired_spacing))} took: {round((time.time() - resampling_time_start), 2)}s')
     to_crop_image = SimpleITK.GetImageFromArray(to_crop_image_array)
     to_crop_image.SetOrigin(image.GetOrigin())
     to_crop_image.SetSpacing(desired_spacing)

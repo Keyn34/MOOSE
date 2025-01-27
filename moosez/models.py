@@ -75,13 +75,18 @@ MODEL_METADATA = {
         KEY_FOLDER_NAME: "Dataset002_PUMA",
         KEY_LIMIT_FOV: None
     },
+    "clin_pt_fdg_organs": {
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/lion/clin_pt_fdg_1282_03012025.zip",
+        KEY_FOLDER_NAME: "Dataset789_Tumors",
+        KEY_LIMIT_FOV: None
+    },
     "clin_pt_fdg_brain_v1": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_fdg_pt_brain_v1_17112023.zip",
         KEY_FOLDER_NAME: "Dataset100_Brain_v1",
         KEY_LIMIT_FOV: {
-            "model_to_crop_from": "clin_ct_fast_organs",
-            "inference_fov_intensities": [4, 4],
-            "label_intensity_to_crop_from": 4,
+            "model_to_crop_from": "clin_pt_fdg_organs",
+            "inference_fov_intensities": [1, 1],
+            "label_intensity_to_crop_from": 1,
             "largest_component_only": True
         }
     },
@@ -188,11 +193,10 @@ class Model:
         segments = self.model_identifier.split('_')
 
         imaging_type = segments[0]
+        modality = segments[1].upper()
         if segments[1] == 'pt':
-            modality = f'{segments[1]}_{segments[2]}'.upper()
             region = '_'.join(segments[3:])
         else:
-            modality = segments[1].upper()
             region = '_'.join(segments[2:])
 
         return imaging_type, modality, region
@@ -364,6 +368,12 @@ class ModelWorkflow:
         if model.limit_fov and isinstance(model.limit_fov, dict) and 'model_to_crop_from' in model.limit_fov:
             self.__construct_workflow(model.limit_fov["model_to_crop_from"], output_manager)
         self.workflow.append(model)
+
+    def contains_modality(self, modality: str) -> bool:
+        for model in self.workflow:
+            if model.modality == modality:
+                return True
+        return False
 
     def __len__(self) -> len:
         return len(self.workflow)
