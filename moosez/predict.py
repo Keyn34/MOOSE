@@ -20,10 +20,12 @@ import dask
 import torch
 import numpy as np
 import SimpleITK
+import time
 from typing import Tuple, List, Dict, Iterator
 from moosez import models
 from moosez import image_processing
 from moosez import system
+from moosez import constants
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 
@@ -46,7 +48,7 @@ def initialize_predictor(model: models.Model, accelerator: str) -> nnUNetPredict
 
 @dask.delayed
 def process_case(preprocessor, chunk: np.ndarray, chunk_properties: Dict, predictor: nnUNetPredictor, location: Tuple) -> Dict:
-    data, seg = preprocessor.run_case_npy(chunk,
+    data, _ = preprocessor.run_case_npy(chunk,
                                           None,
                                           chunk_properties,
                                           predictor.plans_manager,
@@ -54,16 +56,20 @@ def process_case(preprocessor, chunk: np.ndarray, chunk_properties: Dict, predic
                                           predictor.dataset_json)
 
     data_tensor = torch.from_numpy(data).contiguous()
-    if predictor.device == "cuda":
+    if predictor.device.type == "cuda":
         data_tensor = data_tensor.pin_memory()
 
     return {'data': data_tensor, 'data_properties': chunk_properties, 'ofile': None, 'location': location}
 
 
-def preprocessing_iterator_from_array(image_array: np.ndarray, image_properties: Dict, predictor: nnUNetPredictor) -> Tuple[Iterator, List]:
-    overlap_per_dimension = (0, 20, 20, 20)
+def preprocessing_iterator_from_array(image_array: np.ndarray, image_properties: Dict, predictor: nnUNetPredictor, output_manager: system.OutputManager) -> Tuple[Iterator, List[Dict]]:
     splits = image_processing.ImageChunker.determine_splits(image_array)
-    chunks, locations = image_processing.ImageChunker.array_to_chunks(image_array, splits, overlap_per_dimension)
+    chunks, locations = image_processing.ImageChunker.array_to_chunks(image_array, splits, constants.OVERLAP_PER_AXIS)
+
+    if len(chunks) == 1:
+        output_manager.log_update(f"     - Image below chunking threshold. Single chunk of size: {'x'.join(map(str, chunks[0].shape))}")
+    else:
+        output_manager.log_update(f"     - Image split into {len(chunks)} chunks of size: {'x'.join(map(str, chunks[0].shape))}")
 
     preprocessor = predictor.configuration_manager.preprocessor_class(verbose=predictor.verbose)
 
@@ -83,18 +89,14 @@ def predict_from_array_by_iterator(image_array: np.ndarray, model: models.Model,
 
     with output_manager.manage_nnUNet_output():
         predictor = initialize_predictor(model, accelerator)
-        image_properties = {
-            'spacing': model.voxel_spacing
-        }
-        splits = image_processing.ImageChunker.determine_splits(image_array)
-        output_manager.log_update(f"     - Image chunked into {'x'.join(map(str, splits))} chunks")
+        image_properties = {'spacing': model.voxel_spacing_numpy}
 
-        iterator, chunk_locations = preprocessing_iterator_from_array(image_array, image_properties, predictor)
+        iterator, chunk_locations = preprocessing_iterator_from_array(image_array, image_properties, predictor, output_manager)
         segmentations = predictor.predict_from_data_iterator(iterator)
-        output_manager.log_update(f"     - Retrieved {len(segmentations)} segmentations")
+        output_manager.log_update(f"     - Retrieved {len(segmentations)} chunks")
         segmentations = [segmentation[None, ...] for segmentation in segmentations]
         combined_segmentations = image_processing.ImageChunker.chunks_to_array(segmentations, chunk_locations, image_array.shape)
-        output_manager.log_update(f"     - Combined them to {'x'.join(map(str, combined_segmentations.shape))} array")
+        output_manager.log_update(f"     - Combined them to an {'x'.join(map(str, combined_segmentations.shape))} array")
 
     return np.squeeze(combined_segmentations)
 
@@ -117,17 +119,20 @@ def cropped_fov_prediction_pipeline(image, segmentation_array, workflow: models.
     # Get the second model from the routine
     model_to_crop_from = workflow[0]
     target_model = workflow[1]
+    output_manager.log_update(f'   - Model {target_model.model_identifier}')
     target_model_fov_information = target_model.limit_fov
 
     # Convert the segmentation array to SimpleITK image and set properties
     to_crop_segmentation = SimpleITK.GetImageFromArray(segmentation_array)
     to_crop_segmentation.SetOrigin(image.GetOrigin())
-    to_crop_segmentation.SetSpacing(model_to_crop_from.voxel_spacing)
+    to_crop_segmentation.SetSpacing(model_to_crop_from.voxel_spacing_SimpleITK)
     to_crop_segmentation.SetDirection(image.GetDirection())
 
     # Resample the image using the desired spacing
-    desired_spacing = target_model.voxel_spacing
+    desired_spacing = target_model.voxel_spacing_SimpleITK
+    resampling_time_start = time.time()
     to_crop_image_array = image_processing.ImageResampler.resample_image_SimpleITK_DASK_array(image, 'bspline', desired_spacing)
+    output_manager.log_update(f'     - Resampling image for next model at {"x".join(map(str, desired_spacing))} took: {round((time.time() - resampling_time_start), 2)}s')
     to_crop_image = SimpleITK.GetImageFromArray(to_crop_image_array)
     to_crop_image.SetOrigin(image.GetOrigin())
     to_crop_image.SetSpacing(desired_spacing)

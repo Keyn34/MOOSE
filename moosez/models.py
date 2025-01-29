@@ -2,6 +2,7 @@ import os
 import json
 import zipfile
 import requests
+import shutil
 from typing import Union, Tuple, List, Dict
 from moosez import system
 from moosez.constants import (KEY_FOLDER_NAME, KEY_URL, KEY_LIMIT_FOV, DEFAULT_SPACING, FILE_NAME_DATASET_JSON,
@@ -74,10 +75,20 @@ MODEL_METADATA = {
         KEY_FOLDER_NAME: "Dataset002_PUMA",
         KEY_LIMIT_FOV: None
     },
+    "clin_pt_fdg_organs": {
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/lion/clin_pt_fdg_1282_03012025.zip",
+        KEY_FOLDER_NAME: "Dataset789_Tumors",
+        KEY_LIMIT_FOV: None
+    },
     "clin_pt_fdg_brain_v1": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_fdg_pt_brain_v1_17112023.zip",
         KEY_FOLDER_NAME: "Dataset100_Brain_v1",
-        KEY_LIMIT_FOV: None
+        KEY_LIMIT_FOV: {
+            "model_to_crop_from": "clin_pt_fdg_organs",
+            "inference_fov_intensities": [1, 1],
+            "label_intensity_to_crop_from": 1,
+            "largest_component_only": True
+        }
     },
     "clin_ct_ALPACA": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_ALPACA.zip",
@@ -92,11 +103,6 @@ MODEL_METADATA = {
     "clin_ct_fast_organs": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_organs_6_02092024.zip",
         KEY_FOLDER_NAME: "Dataset145_Fast_organs",
-        KEY_LIMIT_FOV: None
-    },
-    "clin_pt_fdg_tumor": {
-        KEY_URL: None,
-        KEY_FOLDER_NAME: None,
         KEY_LIMIT_FOV: None
     },
     "clin_ct_body_composition": {
@@ -123,6 +129,11 @@ MODEL_METADATA = {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_fat_31082023.zip",
         KEY_FOLDER_NAME: "Dataset777_Fat",
         KEY_LIMIT_FOV: None
+    },
+    "clin_ct_dental": {
+        KEY_URL: "https://model.s.mdforge.com/Dataset112_DentalSegmentator_v100_moose.zip",
+        KEY_FOLDER_NAME: "Dataset112_DentalSegmentator_v100",
+        KEY_LIMIT_FOV: None
     }
 }
 
@@ -144,7 +155,8 @@ class Model:
         self.trainer, self.planner, self.resolution_configuration = self.__get_model_configuration()
 
         self.dataset, self.plans = self.__get_model_data()
-        self.voxel_spacing = tuple(self.plans.get('configurations').get(self.resolution_configuration).get('spacing', DEFAULT_SPACING))
+        self.voxel_spacing_numpy = tuple(self.plans.get('configurations').get(self.resolution_configuration).get('spacing', DEFAULT_SPACING))
+        self.voxel_spacing_SimpleITK = tuple(reversed(self.voxel_spacing_numpy))
         self.imaging_type, self.modality, self.region = self.__get_model_identifier_segments()
         self.multilabel_prefix = f"{self.imaging_type}_{self.modality}_{self.region}_"
 
@@ -181,11 +193,10 @@ class Model:
         segments = self.model_identifier.split('_')
 
         imaging_type = segments[0]
+        modality = segments[1].upper()
         if segments[1] == 'pt':
-            modality = f'{segments[1]}_{segments[2]}'.upper()
             region = '_'.join(segments[3:])
         else:
-            modality = segments[1].upper()
             region = '_'.join(segments[2:])
 
         return imaging_type, modality, region
@@ -205,22 +216,46 @@ class Model:
         return dataset, plans
 
     def __download(self, output_manager: system.OutputManager):
+        # If folder already exists, check if we should remove it
         if os.path.exists(self.directory):
-            output_manager.log_update(f"    - A local instance of {self.model_identifier} has been detected.")
-            output_manager.console_update(f"{ANSI_GREEN} A local instance of {self.model_identifier} has been detected. {ANSI_RESET}")
-            return
+            # Attempt to load the previously saved URL from version file
+            version_file_path = os.path.join(self.directory, "model_version.json")
+            old_url = None
 
-        output_manager.log_update(f"    - Downloading {self.model_identifier}")
+            if os.path.exists(version_file_path):
+                try:
+                    with open(version_file_path, 'r') as vf:
+                        version_data = json.load(vf)
+                        old_url = version_data.get("url")
+                except Exception:
+                    pass  # If JSON is corrupted, we'll just treat it as mismatch
+
+            # If the existing folder's URL doesn't match the new URL, remove folder
+            if old_url != self.url:
+                output_manager.console_update(f" Model version mismatch detected for '{self.model_identifier}'. Removing outdated model and downloading the latest model...")
+                shutil.rmtree(self.directory, ignore_errors=True)
+            else:
+                # If the URL matches, we skip re-downloading
+                output_manager.log_update(f"    - A local instance of {self.model_identifier} has been detected.")
+                output_manager.console_update(f"{ANSI_GREEN} A local instance of {self.model_identifier} has been detected. {ANSI_RESET}")
+                return
+
+        # If folder doesn't exist or has been removed, proceed to download
         if not os.path.exists(self.base_directory):
             os.makedirs(self.base_directory)
 
+        if not self.url:
+            raise ValueError(f" No URL specified for model '{self.model_identifier}'.")
+
+        output_manager.log_update(f"    - Downloading {self.model_identifier}")
         download_file_name = os.path.basename(self.url)
         download_file_path = os.path.join(self.base_directory, download_file_name)
 
         response = requests.get(self.url, stream=True)
         if response.status_code != 200:
             output_manager.log_update(f"    X Failed to download model from {self.url}")
-            raise Exception(f"Failed to download model from {self.url}")
+            raise Exception(f" Failed to download model from {self.url}")
+
         total_size = int(response.headers.get("Content-Length", 0))
         chunk_size = 1024 * 10
 
@@ -232,25 +267,39 @@ class Model:
                     if chunk:
                         f.write(chunk)
                         progress.update(task, advance=chunk_size)
-        output_manager.log_update(f"    - {self.model_identifier} ({self.folder_name} downloaded.")
 
+        output_manager.log_update(f"    - {self.model_identifier} ({self.folder_name}) downloaded.")
+
+        # Extract
         progress = output_manager.create_file_progress_bar()
         with progress:
             with zipfile.ZipFile(download_file_path, 'r') as zip_ref:
-                total_size = sum((file.file_size for file in zip_ref.infolist()))
+                total_size = sum(file.file_size for file in zip_ref.infolist())
                 task = progress.add_task(f"[white] Extracting {self.model_identifier}...", total=total_size)
                 for file in zip_ref.infolist():
                     zip_ref.extract(file, self.base_directory)
                     progress.update(task, advance=file.file_size)
-        output_manager.log_update(f"    - {self.model_identifier} extracted.")
 
+        output_manager.log_update(f"    - {self.model_identifier} extracted.")
         os.remove(download_file_path)
+
+        # Save a small version file with the URL
+        os.makedirs(self.directory, exist_ok=True)
+        version_file_path = os.path.join(self.directory, "model_version.json")
+        with open(version_file_path, 'w') as vf:
+            json.dump({"url": self.url}, vf)
+
         output_manager.log_update(f"    - {self.model_identifier} - setup complete.")
         output_manager.console_update(f"{ANSI_GREEN} {self.model_identifier} - setup complete. {ANSI_RESET}")
 
     def __get_organ_indices(self) -> Dict[int, str]:
         labels = self.dataset.get('labels', {})
         return {int(value): key for key, value in labels.items() if value != "0"}
+
+    def organ_indices_to_json(self, directory_path: str):
+        file_path = os.path.join(directory_path, f"{self.multilabel_prefix}organ_indices.json")
+        with open(file_path, "w") as organ_indices_json_file:
+            json.dump({"organ_indices": self.__get_organ_indices()}, organ_indices_json_file, indent=4)
 
     def __get_number_training_data(self) -> str:
         nr_training_data = str(self.dataset.get('numTraining', "Not Available"))
@@ -269,7 +318,7 @@ class Model:
             f" Trainer: {self.trainer}",
             f" Planner: {self.planner}",
             f" Resolution Configuration: {self.resolution_configuration}",
-            f" Voxel Spacing: {self.voxel_spacing}",
+            f" Voxel Spacing: {self.voxel_spacing_SimpleITK} (SimpleITK) | {self.voxel_spacing_numpy} (numpy)",
             f" Imaging Type: {self.imaging_type}",
             f" Modality: {self.modality}",
             f" Region: {self.region}",
@@ -311,7 +360,7 @@ class ModelWorkflow:
         self.workflow: List[Model] = []
         self.__construct_workflow(model_identifier, output_manager)
         if self.workflow:
-            self.initial_desired_spacing = self.workflow[0].voxel_spacing
+            self.initial_desired_spacing = self.workflow[0].voxel_spacing_SimpleITK
             self.target_model = self.workflow[-1]
 
     def __construct_workflow(self, model_identifier: str, output_manager: system.OutputManager):
@@ -319,6 +368,12 @@ class ModelWorkflow:
         if model.limit_fov and isinstance(model.limit_fov, dict) and 'model_to_crop_from' in model.limit_fov:
             self.__construct_workflow(model.limit_fov["model_to_crop_from"], output_manager)
         self.workflow.append(model)
+
+    def contains_modality(self, modality: str) -> bool:
+        for model in self.workflow:
+            if model.modality == modality:
+                return True
+        return False
 
     def __len__(self) -> len:
         return len(self.workflow)
@@ -333,7 +388,7 @@ class ModelWorkflow:
         return " -> ".join([model.model_identifier for model in self.workflow])
 
 
-def construct_model_routine(model_identifiers: Union[str, List[str]], output_manager: system.OutputManager) -> Dict[tuple, List[ModelWorkflow]]:
+def construct_model_routine(model_identifiers: Union[str, List[str]], output_manager: system.OutputManager) -> Dict[Tuple[float, float, float], List[ModelWorkflow]]:
     if isinstance(model_identifiers, str):
         model_identifiers = [model_identifiers]
 

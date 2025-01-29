@@ -181,8 +181,8 @@ def largest_connected_component(segmentation_array, intensities):
 class ImageChunker:
     @staticmethod
     def __compute_interior_indices(axis_length: int, number_of_chunks: int) -> Tuple[List[int], List[int]]:
-        start = [int(round(k * axis_length / number_of_chunks)) for k in range(number_of_chunks)]
-        end = [int(round((k + 1) * axis_length / number_of_chunks)) for k in range(number_of_chunks)]
+        start = [int(round(chunk_index * axis_length / number_of_chunks)) for chunk_index in range(number_of_chunks)]
+        end = [int(round((chunk_index + 1) * axis_length / number_of_chunks)) for chunk_index in range(number_of_chunks)]
         return start, end
 
     @staticmethod
@@ -213,22 +213,20 @@ class ImageChunker:
 
                 start = max(0, start_index[chunk_index] - overlap if chunk_index > 0 else start_index[chunk_index])
                 end = min(axis_length, end_index[chunk_index] + overlap if chunk_index < number_of_chunks - 1 else end_index[chunk_index])
+                chunk_slice.append(slice(start, end))
 
                 start_in_chunk = start_index[chunk_index] - start
                 end_in_chunk = start_in_chunk + (end_index[chunk_index] - start_index[chunk_index])
+                interior_slice.append(slice(start_in_chunk, end_in_chunk))
 
                 start_in_full = start_index[chunk_index]
                 end_in_full = end_index[chunk_index]
-
-                chunk_slice.append(slice(start, end))
-                interior_slice.append(slice(start_in_chunk, end_in_chunk))
                 dest_slice.append(slice(start_in_full, end_in_full))
 
-            chunk_info.append({
-                'chunk_slice': tuple(chunk_slice),
-                'interior_slice': tuple(interior_slice),
-                'dest_slice': tuple(dest_slice)
-            })
+            chunk_info.append({'chunk_slice': tuple(chunk_slice),
+                               'interior_slice': tuple(interior_slice),
+                               'dest_slice': tuple(dest_slice)
+                               })
 
         return chunk_info
 
@@ -240,16 +238,15 @@ class ImageChunker:
 
         for info in chunk_info:
             image_chunk = image_array[info['chunk_slice']]
-            positions.append({
-                'interior_slice': info['interior_slice'],
-                'dest_slice': info['dest_slice']
-            })
+            positions.append({'interior_slice': info['interior_slice'],
+                              'dest_slice': info['dest_slice']
+                              })
             image_chunks.append(image_chunk)
 
         return image_chunks, positions
 
     @staticmethod
-    def chunks_to_array(image_chunks: List[np.ndarray], image_chunk_positions: Dict, final_shape: Union[List[int], Tuple[int, ...]]) -> np.ndarray:
+    def chunks_to_array(image_chunks: List[np.ndarray], image_chunk_positions: List[Dict], final_shape: Union[List[int], Tuple[int, ...]]) -> np.ndarray:
         final_arr = np.empty(final_shape, dtype=image_chunks[0].dtype)
         for image_chunk, image_chunk_position in zip(image_chunks, image_chunk_positions):
             interior_region = image_chunk[image_chunk_position['interior_slice']]
@@ -336,66 +333,6 @@ class ImageResampler:
         return resampled_array
 
     @staticmethod
-    def resample_image_SimpleITK_DASK(sitk_image: SimpleITK.Image, interpolation: str,
-                                      output_spacing: Tuple[float, float, float] = (1.5, 1.5, 1.5),
-                                      output_size: Union[Tuple, None] = None) -> SimpleITK.Image:
-        """
-        Resamples a sitk_image using Dask and SimpleITK.
-
-        :param sitk_image: The SimpleITK image to be resampled.
-        :type sitk_image: sitk.Image
-        :param interpolation: nearest|linear|bspline.
-        :type interpolation: str
-        :param output_spacing: The desired output spacing of the resampled sitk_image.
-        :type output_spacing: tuple
-        :param output_size: The new size to use.
-        :type output_size: tuple
-        :return: The resampled sitk_image as SimpleITK.Image.
-        :rtype: sitk.Image
-        :raises ValueError: If the interpolation method is not supported.
-        """
-
-        resample_result = ImageResampler.resample_image_SimpleITK_DASK_array(sitk_image, interpolation, output_spacing, output_size)
-
-        resampled_image = SimpleITK.GetImageFromArray(resample_result)
-        resampled_image.SetSpacing(output_spacing)
-        resampled_image.SetOrigin(sitk_image.GetOrigin())
-        resampled_image.SetDirection(sitk_image.GetDirection())
-
-        return resampled_image
-
-    @staticmethod
-    def reslice_identity(reference_image: SimpleITK.Image, moving_image: SimpleITK.Image,
-                         output_image_path: Union[str, None] = None, is_label_image: bool = False) -> SimpleITK.Image:
-        """
-        Reslices an image to the same space as another image.
-
-        :param reference_image: The reference image.
-        :type reference_image: SimpleITK.Image
-        :param moving_image: The image to reslice to the reference image.
-        :type moving_image: SimpleITK.Image
-        :param output_image_path: Path to the resliced image. Default is None.
-        :type output_image_path: str
-        :param is_label_image: Determines if the image is a label image. Default is False.
-        :type is_label_image: bool
-        :return: The resliced image as SimpleITK.Image.
-        :rtype: SimpleITK.Image
-        """
-        resampler = SimpleITK.ResampleImageFilter()
-        resampler.SetReferenceImage(reference_image)
-
-        if is_label_image:
-            resampler.SetInterpolator(SimpleITK.sitkNearestNeighbor)
-        else:
-            resampler.SetInterpolator(SimpleITK.sitkLinear)
-
-        resampled_image = resampler.Execute(moving_image)
-        resampled_image = SimpleITK.Cast(resampled_image, SimpleITK.sitkInt32)
-        if output_image_path is not None:
-            SimpleITK.WriteImage(resampled_image, output_image_path)
-        return resampled_image
-
-    @staticmethod
     def resample_image_SimpleITK_DASK_array(sitk_image: SimpleITK.Image, interpolation: str,
                                             output_spacing: Tuple[float, float, float] = (1.5, 1.5, 1.5),
                                             output_size: Union[Tuple[float, float, float], None] = None) -> np.array:
@@ -427,6 +364,51 @@ class ImageResampler:
                                dtype=np.float32)
 
         return result.compute()
+
+    @staticmethod
+    def image_geometries_identical(reference_image: SimpleITK.Image, image: SimpleITK.Image) -> bool:
+        reference_geometry = (reference_image.GetSize(), reference_image.GetSpacing(), reference_image.GetOrigin(), reference_image.GetDirection())
+        image_geometry = (image.GetSize(), image.GetSpacing(), image.GetOrigin(), image.GetDirection())
+        return reference_geometry == image_geometry
+
+    @staticmethod
+    def reslice_identity(reference_image: SimpleITK.Image, moving_image: SimpleITK.Image,
+                         output_image_path: Union[str, None] = None, is_label_image: bool = False) -> SimpleITK.Image:
+        """
+        Reslices an image to the same space as another image.
+
+        :param reference_image: The reference image.
+        :type reference_image: SimpleITK.Image
+        :param moving_image: The image to reslice to the reference image.
+        :type moving_image: SimpleITK.Image
+        :param output_image_path: Path to the resliced image. Default is None.
+        :type output_image_path: str
+        :param is_label_image: Determines if the image is a label image. Default is False.
+        :type is_label_image: bool
+        :return: The resliced image as SimpleITK.Image.
+        :rtype: SimpleITK.Image
+        """
+
+        if ImageResampler.image_geometries_identical(reference_image, moving_image):
+            return moving_image
+
+        resampler = SimpleITK.ResampleImageFilter()
+        resampler.SetReferenceImage(reference_image)
+
+        if is_label_image:
+            resampler.SetInterpolator(SimpleITK.sitkNearestNeighbor)
+            output_pixel_type = SimpleITK.sitkInt32
+        else:
+            resampler.SetInterpolator(SimpleITK.sitkLinear)
+            output_pixel_type = moving_image.GetPixelID()
+
+        resampled_image = resampler.Execute(moving_image)
+        resampled_image = SimpleITK.Cast(resampled_image, output_pixel_type)
+        
+        if output_image_path is not None:
+            SimpleITK.WriteImage(resampled_image, output_image_path)
+
+        return resampled_image
 
     @staticmethod
     def resample_segmentation(reference_image: SimpleITK.Image, segmentation_image: SimpleITK.Image):
@@ -524,24 +506,24 @@ def convert_to_sitk(image: nibabel.Nifti1Image) -> SimpleITK.Image:
 def standardize_image(image_path: str, output_manager: system.OutputManager, standardization_output_path: Union[str, None]) -> SimpleITK.Image:
     image = nibabel.load(image_path)
     _, original_orientation = determine_orientation_code(image)
-    output_manager.log_update(f"   Image loaded. Orientation: {original_orientation}")
+    output_manager.log_update(f" - Image loaded. Orientation: {original_orientation}")
 
     image, orthonormalized = confirm_orthonormality(image)
     if orthonormalized:
         _, orthonormal_orientation = determine_orientation_code(image)
-        output_manager.log_update(f"   Image orthonormalized. Orientation: {orthonormal_orientation}")
+        output_manager.log_update(f"   - Image orthonormalized. Orientation: {orthonormal_orientation}")
     image, reoriented = confirm_orientation(image)
     if reoriented:
         _, reoriented_orientation = determine_orientation_code(image)
-        output_manager.log_update(f"   Image reoriented. Orientation: {reoriented_orientation}")
+        output_manager.log_update(f"   - Image reoriented. Orientation: {reoriented_orientation}")
     sitk_image = convert_to_sitk(image)
-    output_manager.log_update(f"   Image converted to SimpleITK.")
+    output_manager.log_update(f" - Image converted to SimpleITK.")
 
     processing_steps = [orthonormalized, reoriented]
     prefixes = ["orthonormal", "reoriented"]
 
     if standardization_output_path is not None and any(processing_steps):
-        output_manager.log_update(f"   Writing standardized image.")
+        output_manager.log_update(f" - Writing standardized image.")
         prefix = "_".join([prefix for processing_step, prefix in zip(processing_steps, prefixes) if processing_step])
         output_path = os.path.join(standardization_output_path, f"{prefix}_{os.path.basename(image_path)}")
         SimpleITK.WriteImage(sitk_image, output_path)
