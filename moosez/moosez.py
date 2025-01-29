@@ -447,20 +447,31 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
 
     CT_image = None
     CT_file_name = None
-    CT_file_path = file_utilities.get_files(subject, 'CT_', ('.nii', '.nii.gz'))[0]
+    CT_file_path = file_utilities.get_modality_file(subject, 'CT_')
     if CT_file_path:
         CT_image = image_processing.standardize_image(CT_file_path, output_manager, moose_dir)
         CT_file_name = file_utilities.get_nifti_file_stem(CT_file_path)
-        performance_observer.metadata_image_size = CT_image.GetSize()
+
     PT_image = None
     PT_file_name = None
-    PT_file_path = file_utilities.find_pet_file(subject)
+    PT_file_path = file_utilities.get_modality_file(subject, 'PT_')
     if PT_file_path:
         PT_image = SimpleITK.ReadImage(PT_file_path)
         PT_file_name = file_utilities.get_nifti_file_stem(PT_file_path)
 
-    images_data = [(CT_image, CT_file_name, "CT"), (PT_image, PT_file_name, "PT")]
+    MR_image = None
+    MR_file_name = None
+    MR_file_path = file_utilities.get_modality_file(subject, 'MR_')
+    if MR_file_path:
+        MR_image = image_processing.standardize_image(MR_file_path, output_manager, moose_dir)
+        MR_file_name = file_utilities.get_nifti_file_stem(MR_file_path)
+
+    images_data = [(CT_image, CT_file_name, "CT"), (PT_image, PT_file_name, "PT"), (MR_image, MR_file_name, "MR")]
     for image_data in images_data:
+        if None in image_data:
+            _, _, image_modality = image_data
+            output_manager.log_update(f' - Subject has no {image_modality} image.')
+            continue
         image, image_name, image_modality = image_data
         output_manager.log_update(' ')
         output_manager.log_update(f' {image_modality}: {image_name}')
