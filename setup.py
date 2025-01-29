@@ -31,7 +31,7 @@ setup(
              ' preclinical-segmentation clinical-segmentation',
     packages=find_packages(),
     install_requires=[
-        'torch>2.6',
+        'torch<2.6',
         'SimpleITK',
         'acvl-utils==0.2',
         'nnunetv2',
