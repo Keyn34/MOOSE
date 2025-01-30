@@ -3,7 +3,6 @@
 import logging
 import torch
 import os
-import sys
 import pyfiglet
 import importlib.metadata
 from halo import Halo
@@ -140,6 +139,7 @@ class OutputManager:
                              " PET imaging together." + ANSI_RESET
         self.console_update(result)
         self.console_update(text)
+        self.console_update(" For 3DSlicer.")
         self.console_update(' ')
 
     def display_authors(self):
