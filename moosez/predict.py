@@ -42,7 +42,7 @@ def initialize_predictor(model: models.Model, accelerator: str) -> nnUNetPredict
     """
     device = torch.device(accelerator)
     predictor = nnUNetPredictor(allow_tqdm=False, device=device)
-    predictor.initialize_from_trained_model_folder(model.configuration_directory, use_folds=("all",))
+    predictor.initialize_from_trained_model_folder(model.configuration_directory, use_folds=model.folds)
     return predictor
 
 

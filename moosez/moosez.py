@@ -100,6 +100,12 @@ def main():
     )
 
     parser.add_argument(
+        "-sl", "--single_labels",
+        action="store_true",
+        help="Writes all labels of each segmentation as single label image with the intensity 1 if activated."
+    )
+
+    parser.add_argument(
         '-dtd', '--download_training_data',
         action="store_true",
         default=False,
@@ -158,6 +164,7 @@ def main():
     model_names = args.model_names
     benchmark = args.benchmark
     moose_instances = args.moose_herd
+    single_labels = args.single_labels
 
     output_manager.configure_logging(parent_folder)
     output_manager.log_update('----------------------------------------------------------------------------------------------------')
@@ -255,7 +262,7 @@ def main():
             futures = []
             for i, (subject, accelerator) in enumerate(zip(moose_compliant_subjects, accelerator_assignments)):
                 futures.append(executor.submit(moose_subject, subject, i, num_subjects, model_routine,
-                                               accelerator, None, benchmark))
+                                               accelerator, None, benchmark, single_labels))
 
             for future in concurrent.futures.as_completed(futures):
                 if benchmark:
@@ -271,7 +278,7 @@ def main():
     else:
         for i, subject in enumerate(moose_compliant_subjects):
             subject_performance = moose_subject(subject, i, num_subjects, model_routine,
-                                                accelerator, output_manager, benchmark)
+                                                accelerator, output_manager, benchmark, single_labels)
             if benchmark:
                 subject_performance_parameters.append(subject_performance)
 
@@ -410,7 +417,7 @@ def moose(input_data: Union[str, Tuple[numpy.ndarray, Tuple[float, float, float]
 
 
 def moose_subject(subject: str, subject_index: int, number_of_subjects: int, model_routine: Dict, accelerator: str,
-                  output_manager: Union[system.OutputManager, None], benchmark: bool = False):
+                  output_manager: Union[system.OutputManager, None], benchmark: bool = False, single_labels: bool = False):
     # SETTING UP DIRECTORY STRUCTURE
     subject_name = os.path.basename(subject)
 
@@ -531,6 +538,16 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
                 output_manager.log_update(f'     - Writing organ indices for {model_workflow.target_model}')
                 model_workflow.target_model.organ_indices_to_json(segmentations_dir)
                 output_manager.log_update(f"     - Prediction complete for {model_workflow.target_model} within {round((time.time() - model_time_start)/ 60, 1)} min.")
+
+                # -----------------------------------------------
+                # WRITE SINGLE LABELS IF WANTED
+                # -----------------------------------------------
+                if single_labels:
+                    output_manager.spinner_update(f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] extracting individual labels {subject_name}! {constants.ANSI_RESET}')
+                    output_manager.log_update(f'     - Extracting individual labels and writing them for {model_workflow.target_model}')
+                    individual_segmentations_dir = os.path.join(segmentations_dir, "individual_segmentations")
+                    image_processing.extract_labels_and_write(resampled_segmentation, model_workflow.target_model, individual_segmentations_dir)
+                    output_manager.spinner_update(f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] labels extracted and written {subject_name}! {constants.ANSI_RESET}')
 
                 # -----------------------------------------------
                 # EXTRACT VOLUME STATISTICS

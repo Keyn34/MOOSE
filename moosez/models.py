@@ -16,7 +16,7 @@ MODEL_METADATA = {
         KEY_LIMIT_FOV: None
     },
     "clin_ct_organs": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_organs_05082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_organs_25022025.zip",
         KEY_FOLDER_NAME: "Dataset123_Organs",
         KEY_LIMIT_FOV: None
     },
@@ -41,7 +41,7 @@ MODEL_METADATA = {
         KEY_LIMIT_FOV: None
     },
     "clin_ct_peripheral_bones": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_peripheral_bones_05082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_peripheral_bones_22022025.zip",
         KEY_FOLDER_NAME: "Dataset666_Peripheral-Bones",
         KEY_LIMIT_FOV: None
     },
@@ -153,6 +153,7 @@ class Model:
         self.configuration_folders = self.__get_configuration_folders(output_manager)
         self.configuration_directory = os.path.join(self.directory, self.configuration_folders[0])
         self.trainer, self.planner, self.resolution_configuration = self.__get_model_configuration()
+        self.folds = self.__get_model_folds()
 
         self.dataset, self.plans = self.__get_model_data()
         self.voxel_spacing_numpy = tuple(self.plans.get('configurations').get(self.resolution_configuration).get('spacing', DEFAULT_SPACING))
@@ -188,6 +189,11 @@ class Model:
         model_configuration_folder = os.path.basename(self.configuration_directory)
         trainer, planner, resolution_configuration = model_configuration_folder.split("__")
         return trainer, planner, resolution_configuration
+
+    def __get_model_folds(self) -> Tuple[str, ...]:
+        folds_folders = [item for item in os.listdir(self.configuration_directory) if os.path.isdir(os.path.join(self.configuration_directory, item))]
+        folds = tuple([fold.replace("fold_", "") for fold in folds_folders])
+        return folds
 
     def __get_model_identifier_segments(self) -> Tuple[str, str, str]:
         segments = self.model_identifier.split('_')
