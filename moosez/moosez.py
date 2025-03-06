@@ -466,6 +466,13 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
         PT_image = SimpleITK.ReadImage(PT_file_path)
         PT_file_name = file_utilities.get_nifti_file_stem(PT_file_path)
 
+    SPECT_image = None
+    SPECT_file_name = None
+    SPECT_file_path = file_utilities.get_modality_file(subject, 'NM_')
+    if SPECT_file_path:
+        SPECT_image = SimpleITK.ReadImage(SPECT_file_path)
+        SPECT_file_name = file_utilities.get_nifti_file_stem(SPECT_file_path)
+
     MR_image = None
     MR_file_name = None
     MR_file_path = file_utilities.get_modality_file(subject, 'MR_')
@@ -473,7 +480,7 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
         MR_image = image_processing.standardize_image(MR_file_path, output_manager, moose_dir)
         MR_file_name = file_utilities.get_nifti_file_stem(MR_file_path)
 
-    images_data = [(CT_image, CT_file_name, "CT"), (PT_image, PT_file_name, "PT"), (MR_image, MR_file_name, "MR")]
+    images_data = [(CT_image, CT_file_name, "CT"), (PT_image, PT_file_name, "PT"), (MR_image, MR_file_name, "MR"), (SPECT_image, SPECT_file_name, "NM")]
     for image_data in images_data:
         if None in image_data:
             _, _, image_modality = image_data
@@ -582,6 +589,18 @@ def moose_subject(subject: str, subject_index: int, number_of_subjects: int, mod
                     out_csv = os.path.join(stats_dir, model_workflow.target_model.multilabel_prefix + subject_name + '_pet_activity.csv')
                     image_processing.get_intensity_statistics(PT_image, resampled_multilabel_image, model_workflow.target_model, out_csv)
                     output_manager.spinner_update(f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] PET activity extracted for {subject_name}! {constants.ANSI_RESET}')
+                    time.sleep(1)
+
+                # -----------------------------------------------
+                # EXTRACT SPECT ACTIVITY
+                # -----------------------------------------------
+                if SPECT_image is not None and resampled_segmentation is not None:
+                    output_manager.spinner_update(f'[{subject_index + 1}/{number_of_subjects}] Extracting SPECT activity for {subject_name} ({model_workflow.target_model})...')
+                    output_manager.log_update(f'     - Extracting SPECT statistics for {model_workflow.target_model}')
+                    resampled_multilabel_image = image_processing.ImageResampler.reslice_identity(SPECT_image, resampled_segmentation, is_label_image=True)
+                    out_csv = os.path.join(stats_dir, model_workflow.target_model.multilabel_prefix + subject_name + '_spect_activity.csv')
+                    image_processing.get_intensity_statistics(SPECT_image, resampled_multilabel_image, model_workflow.target_model, out_csv)
+                    output_manager.spinner_update(f'{constants.ANSI_GREEN} [{subject_index + 1}/{number_of_subjects}] SPECT activity extracted for {subject_name}! {constants.ANSI_RESET}')
                     time.sleep(1)
 
                 performance_observer.time_phase()
