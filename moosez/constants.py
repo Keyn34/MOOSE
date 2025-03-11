@@ -40,6 +40,7 @@ KEY_DESCRIPTION_IMAGING = "Imaging"
 DEFAULT_SPACING = (1.5, 1.5, 1.5)
 FILE_NAME_DATASET_JSON = "dataset.json"
 FILE_NAME_PLANS_JSON = "plans.json"
+SALIVARY_GLANDS_INTENSITY = 5
 
 
 ENHANCE_URL = "https://enhance-pet.s3.eu-central-1.amazonaws.com/enhance-pet-1_6k/ENHANCE-PET-1_6k.zip"

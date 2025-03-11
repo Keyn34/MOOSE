@@ -59,6 +59,8 @@ def determine_model_expectations(model_routine: Dict[Tuple, List[models.ModelWor
             imaging = f"{model_workflow.target_model.imaging_type}ical".capitalize()
             regions = str(model_workflow.target_model.organ_indices)
             nr_training_data = model_workflow.target_model.nr_training_data
+            if str(model_workflow) == "clin_nm_salivary_glands":
+                regions = "{1: 'salivary_glands'}"
             table.add_row(str(model_nr), model_identifier, regions, imaging, modality, ', '.join(prefixes), nr_training_data)
 
     output_manager.console_update(table)
