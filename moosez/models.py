@@ -134,6 +134,11 @@ MODEL_METADATA = {
         KEY_URL: "https://model.s.mdforge.com/Dataset112_DentalSegmentator_v100_moose.zip",
         KEY_FOLDER_NAME: "Dataset112_DentalSegmentator_v100",
         KEY_LIMIT_FOV: None
+    },
+    "clin_nm_salivary_glands": {
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/lion/clin_pt_psma_ap550_MTIC263_15072024.zip",
+        KEY_FOLDER_NAME: "Dataset711_PSMA",
+        KEY_LIMIT_FOV: None
     }
 }
 

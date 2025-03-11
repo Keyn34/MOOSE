@@ -98,6 +98,10 @@ def predict_from_array_by_iterator(image_array: np.ndarray, model: models.Model,
         combined_segmentations = image_processing.ImageChunker.chunks_to_array(segmentations, chunk_locations, image_array.shape)
         output_manager.log_update(f"     - Combined them to an {'x'.join(map(str, combined_segmentations.shape))} array")
 
+    if str(model) == "clin_nm_salivary_glands":
+        combined_segmentations[combined_segmentations != constants.SALIVARY_GLANDS_INTENSITY] = 0
+        combined_segmentations[combined_segmentations == constants.SALIVARY_GLANDS_INTENSITY] = 1
+
     return np.squeeze(combined_segmentations)
 
 
