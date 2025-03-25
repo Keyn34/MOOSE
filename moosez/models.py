@@ -90,6 +90,11 @@ MODEL_METADATA = {
             "largest_component_only": True
         }
     },
+    "clin_pt_psma_organ_context": {
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/lion/clin_pt_psma_1005_11032025.zip",
+        KEY_FOLDER_NAME: "Dataset711_PSMA",
+        KEY_LIMIT_FOV: None
+    },
     "clin_ct_ALPACA": {
         KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_ALPACA.zip",
         KEY_FOLDER_NAME: "Dataset080_Alpaca",
