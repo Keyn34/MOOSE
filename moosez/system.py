@@ -3,7 +3,6 @@
 import logging
 import torch
 import os
-import sys
 import emoji
 import pyfiglet
 import importlib.metadata
@@ -42,6 +41,7 @@ class OutputManager:
 
         self.console = Console(quiet=not self.verbose_console)
         self.spinner = Halo(spinner='dots', enabled=self.verbose_console)
+        self.spinner_running = False
 
         self.logger = None
         self.nnunet_log_filename = os.devnull
@@ -101,23 +101,30 @@ class OutputManager:
 
     def spinner_update(self, text: str):
         if self.spinner.enabled:
+            if not self.spinner_running:
+                self.spinner.start()
+                self.spinner_running = True
             self.spinner.text = text
 
     def spinner_stop(self):
-        if self.spinner.enabled:
+        if self.spinner.enabled and self.spinner_running:
             self.spinner.stop()
+            self.spinner_running = False
 
     def spinner_start(self, text: str):
-        if self.spinner.enabled:
+        if self.spinner.enabled and not self.spinner_running:
             self.spinner.start(text)
+            self.spinner_running = True
 
     def spinner_succeed(self, text: str):
         if self.spinner.enabled:
             self.spinner.succeed(text)
+            self.spinner_running = False
 
     def spinner_warn(self, text: str):
         if self.spinner.enabled:
             self.spinner.warn(text)
+            self.spinner_running = False
 
     @contextmanager
     def manage_nnUNet_output(self):
