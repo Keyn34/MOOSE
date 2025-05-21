@@ -16,7 +16,7 @@ MODEL_METADATA = {
         KEY_LIMIT_FOV: None
     },
     "clin_ct_organs": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_organs_05082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_organs_ras_07052025.zip",
         KEY_FOLDER_NAME: "Dataset123_Organs",
         KEY_LIMIT_FOV: None
     },
@@ -31,27 +31,27 @@ MODEL_METADATA = {
         KEY_LIMIT_FOV: None
     },
     "clin_ct_ribs": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_ribs_11082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_ribs_ras_08052025.zip",
         KEY_FOLDER_NAME: "Dataset444_Ribs",
         KEY_LIMIT_FOV: None
     },
     "clin_ct_muscles": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_muscles_09082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_muscles_ras_21052025.zip",
         KEY_FOLDER_NAME: "Dataset555_Muscles",
         KEY_LIMIT_FOV: None
     },
     "clin_ct_peripheral_bones": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_peripheral_bones_05082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_peripheral_bones_ras_07052025.zip",
         KEY_FOLDER_NAME: "Dataset666_Peripheral-Bones",
         KEY_LIMIT_FOV: None
     },
     "clin_ct_vertebrae": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_vertebrae_11082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_vertebrae_ras_21052025.zip",
         KEY_FOLDER_NAME: "Dataset111_Vertebrae",
         KEY_LIMIT_FOV: None
     },
     "clin_ct_cardiac": {
-        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_cardiac_09082024.zip",
+        KEY_URL: "https://enhance-pet.s3.eu-central-1.amazonaws.com/moose/clin_ct_cardiac_ras_21052025.zip",
         KEY_FOLDER_NAME: "Dataset888_Cardiac",
         KEY_LIMIT_FOV: None
     },
